@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Digest Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"
+            integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ"
+            crossorigin="anonymous"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #fff; }
+        .header { margin-bottom: 2rem; }
+        .header .subtitle { color: #888; margin-bottom: 0.25rem; }
+        .header .last-run { color: #68d391; font-size: 0.85rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background: #1a1d27; border-radius: 12px; padding: 1.5rem; border: 1px solid #2a2d3a; }
+        .card h2 { font-size: 0.85rem; color: #a0a0a0; margin-bottom: 1rem; text-transform: uppercase; font-weight: 500; letter-spacing: 0.05em; }
+        .stat-value { font-size: 2.5rem; font-weight: 700; color: #fff; }
+        .stat-label { color: #888; font-size: 0.85rem; margin-top: 0.25rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        th { text-align: left; color: #888; font-weight: 500; padding: 0.6rem 0.5rem; border-bottom: 1px solid #2a2d3a; font-size: 0.8rem; text-transform: uppercase; }
+        td { padding: 0.6rem 0.5rem; border-bottom: 1px solid #1f2230; font-size: 0.85rem; }
+        td a { color: #6c9fff; text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        .topic-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+        .topic-llms { background: #2d1f5e; color: #b794f6; }
+        .topic-nlp { background: #1f3d5e; color: #63b3ed; }
+        .topic-computer-vision { background: #1f5e3d; color: #68d391; }
+        .topic-robotics { background: #5e4a1f; color: #f6c874; }
+        .topic-general-ai { background: #3d3d3d; color: #ccc; }
+        .chart-container { position: relative; height: 250px; }
+        .empty-state { color: #666; text-align: center; padding: 2rem; }
+
+        .pipeline-section { margin-bottom: 2rem; }
+        .pipeline-section summary { cursor: pointer; color: #a0a0a0; font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+        .pipeline-section summary:hover { color: #fff; }
+        .pipeline-diagram { margin-top: 1rem; padding: 1.25rem; background: #161820; border-radius: 8px; border: 1px solid #2a2d3a; }
+        .pipeline-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; }
+        .pipeline-step .step-num { background: #3182ce; color: #fff; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; }
+        .pipeline-step .step-text { color: #ccc; font-size: 0.85rem; }
+        .pipeline-step .step-detail { color: #666; font-size: 0.75rem; }
+        .pipeline-arrow { color: #4a5568; text-align: center; font-size: 0.7rem; padding: 0.1rem 0; margin-left: 8px; }
+
+        footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid #2a2d3a; text-align: center; color: #555; font-size: 0.8rem; }
+        footer a { color: #6c9fff; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            .grid { grid-template-columns: 1fr 1fr; }
+            .header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            table { font-size: 0.8rem; }
+        }
+        @media (max-width: 480px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI Digest Dashboard</h1>
+        <p class="subtitle">Automated weekly AI news curation for a Discord community</p>
+        <p class="last-run" id="lastRun"></p>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Weekly Runs</h2>
+            <div class="stat-value" id="statRuns">--</div>
+            <div class="stat-label">digest runs in last 30 days</div>
+        </div>
+        <div class="card">
+            <h2>Articles Tracked</h2>
+            <div class="stat-value" id="statArticles">--</div>
+            <div class="stat-label">articles in last 30 days</div>
+        </div>
+        <div class="card">
+            <h2>Topics</h2>
+            <div class="stat-value" id="statTopics">--</div>
+            <div class="stat-label">active topic categories</div>
+        </div>
+        <div class="card">
+            <h2>Dedup Rate</h2>
+            <div class="stat-value" id="statDedup">--</div>
+            <div class="stat-label" id="statDedupLabel">no data yet</div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Topic Distribution</h2>
+            <div class="chart-container" id="topicChartWrap">
+                <canvas id="topicChart"></canvas>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Pipeline Stats</h2>
+            <div class="chart-container" id="pipelineChartWrap">
+                <canvas id="pipelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 2rem;">
+        <h2>Recent Articles</h2>
+        <table id="articlesTable" style="display:none">
+            <thead>
+                <tr><th>Title</th><th>Source</th><th>Topic</th><th>Date</th></tr>
+            </thead>
+            <tbody id="articlesBody"></tbody>
+        </table>
+        <div class="empty-state" id="articlesEmpty">No articles yet.</div>
+    </div>
+
+    <div class="pipeline-section">
+        <details>
+            <summary>How the pipeline works</summary>
+            <div class="pipeline-diagram">
+                <div class="pipeline-step">
+                    <span class="step-num">1</span>
+                    <div><div class="step-text">RSS Ingestion</div><div class="step-detail">12 curated AI feeds (TechCrunch, Wired AI, OpenAI, DeepMind, etc.)</div></div>
+                </div>
+                <div class="pipeline-arrow">|</div>
+                <div class="pipeline-step">
+                    <span class="step-num">2</span>
+                    <div><div class="step-text">Embedding-based Deduplication</div><div class="step-detail">text-embedding-3-small + cosine similarity (threshold 0.85)</div></div>
+                </div>
+                <div class="pipeline-arrow">|</div>
+                <div class="pipeline-step">
+                    <span class="step-num">3</span>
+                    <div><div class="step-text">AI Relevance Filter</div><div class="step-detail">Reuses dedup embeddings to reject non-AI articles at zero extra cost</div></div>
+                </div>
+                <div class="pipeline-arrow">|</div>
+                <div class="pipeline-step">
+                    <span class="step-num">4</span>
+                    <div><div class="step-text">Topic Classification</div><div class="step-detail">NLP, Computer Vision, LLMs, Robotics, General AI</div></div>
+                </div>
+                <div class="pipeline-arrow">|</div>
+                <div class="pipeline-step">
+                    <span class="step-num">5</span>
+                    <div><div class="step-text">Smart Ranking + GPT-4o Curation</div><div class="step-detail">Source diversity, topic spread, and recency scoring before final top-10 selection</div></div>
+                </div>
+                <div class="pipeline-arrow">|</div>
+                <div class="pipeline-step">
+                    <span class="step-num">6</span>
+                    <div><div class="step-text">Discord Delivery</div><div class="step-detail">Weekly digest posted every Monday at 10 AM ET via webhook</div></div>
+                </div>
+            </div>
+        </details>
+    </div>
+
+    <footer>
+        Built by Tanay Dangaich &middot; <a href="https://github.com/tanaydangaich/daily-ai-digest" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+    </footer>
+
+    <script>
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str || '';
+            return div.innerHTML;
+        }
+
+        function safeHref(url) {
+            return (url && url.startsWith('https://')) ? url : '#';
+        }
+
+        async function loadDashboard() {
+            const [digestsRes, articlesRes, statsRes] = await Promise.all([
+                fetch('/api/digests'),
+                fetch('/api/articles'),
+                fetch('/api/stats'),
+            ]);
+            const digests = await digestsRes.json();
+            const articles = await articlesRes.json();
+            const stats = await statsRes.json();
+            const topicStats = stats.topic_distribution || {};
+
+            // Last run
+            if (digests.length > 0) {
+                const lastDate = new Date(digests[0].run_date + 'T14:00:00Z');
+                document.getElementById('lastRun').textContent =
+                    'Last digest: ' + lastDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
+                    ', 10:00 AM ET  ·  Status: ' + (digests[0].status || 'success');
+            }
+
+            // Stats cards
+            document.getElementById('statRuns').textContent = digests.length;
+            document.getElementById('statArticles').textContent = articles.length;
+            document.getElementById('statTopics').textContent = Object.keys(topicStats).length;
+
+            if (digests.length > 0) {
+                const totalFetched = digests.reduce((s, d) => s + (d.articles_fetched || 0), 0);
+                const totalDedup = digests.reduce((s, d) => s + (d.articles_after_dedup || 0), 0);
+                const removed = totalFetched - totalDedup;
+                const rate = totalFetched > 0 ? (removed / totalFetched * 100).toFixed(1) : 0;
+                document.getElementById('statDedup').textContent = rate + '%';
+                document.getElementById('statDedupLabel').textContent = `duplicates removed (${removed}/${totalFetched})`;
+            }
+
+            // Topic chart
+            const topicLabels = Object.keys(topicStats);
+            const topicValues = Object.values(topicStats);
+            const topicColors = {
+                'llms': '#b794f6', 'nlp': '#63b3ed', 'computer-vision': '#68d391',
+                'robotics': '#f6c874', 'general-ai': '#a0aec0'
+            };
+            if (topicLabels.length > 0) {
+                new Chart(document.getElementById('topicChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: topicLabels,
+                        datasets: [{ data: topicValues, backgroundColor: topicLabels.map(l => topicColors[l] || '#888'), borderWidth: 0 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: '#ccc' } } } }
+                });
+            }
+
+            // Pipeline chart
+            if (digests.length > 0) {
+                const reversed = [...digests].reverse();
+                new Chart(document.getElementById('pipelineChart'), {
+                    type: 'line',
+                    data: {
+                        labels: reversed.map(d => d.run_date),
+                        datasets: [
+                            { label: 'Fetched', data: reversed.map(d => d.articles_fetched), borderColor: '#6c9fff', tension: 0.3, fill: false },
+                            { label: 'After Dedup', data: reversed.map(d => d.articles_after_dedup), borderColor: '#68d391', tension: 0.3, fill: false }
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: {
+                            x: { ticks: { color: '#888' }, grid: { color: '#2a2d3a' } },
+                            y: { ticks: { color: '#888' }, grid: { color: '#2a2d3a' } }
+                        },
+                        plugins: { legend: { labels: { color: '#ccc' } } }
+                    }
+                });
+            }
+
+            // Articles table
+            if (articles.length > 0) {
+                document.getElementById('articlesTable').style.display = '';
+                document.getElementById('articlesEmpty').style.display = 'none';
+                const tbody = document.getElementById('articlesBody');
+                tbody.innerHTML = '';
+                articles.slice(0, 20).forEach(a => {
+                    const topic = a.topic || 'general-ai';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td><a href="${safeHref(a.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(a.title)}</a></td>` +
+                        `<td>${escapeHtml(a.source)}</td>` +
+                        `<td><span class="topic-badge topic-${escapeHtml(topic)}">${escapeHtml(topic)}</span></td>` +
+                        `<td>${escapeHtml(a.digest_date)}</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
