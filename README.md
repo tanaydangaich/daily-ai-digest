@@ -2,7 +2,7 @@
 
 An automated AI news curation system that delivers the top 10 stories to a Discord community every Monday. Features embedding-based deduplication, topic classification, article ranking, and a live analytics dashboard.
 
-**Live dashboard:** [zippy-unity-production.up.railway.app](https://zippy-unity-production.up.railway.app)
+**Live dashboard:** [ai-digest.up.railway.app](https://ai-digest.up.railway.app)
 
 ---
 
